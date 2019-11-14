@@ -47,6 +47,9 @@ class DirectoryTree:
         else:
             return [DirectoryTree(os.path.join(path, ch), self.maxDepth - 1) for ch in os.listdir(path)]
 
+    def isDirectory(self, path):
+        return os.path.isdir(path)
+    
     def getUpPath(self, path, count):
         return os.sep.join(path.split(os.sep)[:-count])
 
@@ -56,15 +59,12 @@ class DirectoryTree:
     def tStr(self):
         return str(self.directoryTree)
 
-    def getFileName(self, path):
-        return os.path.basename(path)
-
-    def isDirectory(self, path):
-        return os.path.isdir(path)
-
     def toJson(self):
         return json.dumps(self, default=lambda o: o.dict["directoryTree"], indent=4)
 
+    def getFileName(self, path):
+        return os.path.basename(path)
+    
     def getSizeInMegabytes(self, path):
         return round(os.path.getsize(path)/ 2**10 / 2**10, 2)
 
@@ -96,7 +96,6 @@ class FileManager:
         if os.path.exists(path):
             return sendFile(os.path.abspath(path))
         raise InvalidUsage("File not exist", statusCode=400)
-
 
     @staticmethod
     def downloadFile(path):
@@ -135,7 +134,6 @@ class FileManager:
         if not os.path.exists(path):
             raise InvalidUsage("Not found", statusCode=400)
         os.rmdir(path)
-
 
 sandbox = Sandbox(app.config["sandboxPath"])
 @app.route("/")
@@ -180,6 +178,12 @@ def CreateEmptyFile(subpath):
     FileManager.createEmptyFile(subpath)
     return DirectoryTree(subpath).toJson()
 
+@app.route("/previewFile/<path:subpath>")
+def PreviewFile(subpath):
+    if not sandbox.isInSandbox(subpath):
+        raise InvalidUsage('Out of sandbox', statusCode=400)
+    return FileManager.previewFile(subpath)
+
 @app.route("/delete/<path:subpath>")
 def Delete(subpath):
     if not sandbox.isInSandbox(subpath):
@@ -195,12 +199,6 @@ def DownloadFile(subpath):
     if not sandbox.isInSandbox(subpath):
         raise InvalidUsage('Out of sandbox', statusCode=400)
     return FileManager.downloadFile(subpath)
-
-@app.route("/previewFile/<path:subpath>")
-def PreviewFile(subpath):
-    if not sandbox.isInSandbox(subpath):
-        raise InvalidUsage('Out of sandbox', statusCode=400)
-    return FileManager.previewFile(subpath)
 
 @app.route('/upload/<path:subpath>')
 def uploadFile(subpath):
